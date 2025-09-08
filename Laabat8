@@ -1,0 +1,189 @@
+"""Задание на л.р. №8 ООП 25
+Требуется написать ООП с графическим интерфейсом в соответствии со своим вариантом. 
+Должны быть реализованы минимум один класс, три атрибута, четыре метода (функции). 
+Ввод данных из файла с контролем правильности ввода. 
+Базы данных не использовать. При необходимости сохранять информацию в файлах, разделяя значения запятыми (CSV файлы) или пробелами. Для GUI использовать библиотеку tkinter (mathplotlib не использовать).
+Вариант 14
+Объекты – расчасовка дисциплин
+Функции:	сегментация полного списка дисциплин по преподавателям
+визуализация предыдущей функции в форме круговой диаграммы
+сегментация полного дисциплин по видам учебной нагрузки
+визуализация предыдущей функции в форме круговой диаграммы"""
+
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+import math
+
+class DisciplineScheduler:
+    def __init__(self):
+        self.disciplines = []  # Список дисциплин: [название, преподаватель, тип, часы]
+        self.by_teacher = {}   # Словарь: преподаватель -> сумма часов
+        self.by_load_type = {} # Словарь: тип нагрузки -> сумма часов
+
+    def load_data(self, Work):
+        """Загрузка данных из файла с контролем формата"""
+        try:
+            with open(Work, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            self.disciplines.clear()
+            for i, line in enumerate(lines):
+                line = line.strip()
+                if not line:
+                    continue
+                # Попробуем разделить по запятой или по пробелам
+                parts = [p.strip() for p in (line.split(',') if ',' in line else line.split())]
+                if len(parts) != 4:
+                    raise ValueError(f"Неверное количество полей (строка {i+1})")
+
+                subject, teacher, load_type, hours_str = parts
+                try:
+                    hours = int(hours_str)
+                    if hours < 0:
+                        raise ValueError
+                except:
+                    raise ValueError(f"Часы должны быть целым неотрицательным числом (строка {i+1})")
+
+                self.disciplines.append([subject, teacher, load_type, hours])
+            return True, "Данные успешно загружены"
+        except Exception as e:
+            return False, str(e)
+
+    def segment_by_teacher(self):
+        """Сегментация по преподавателям"""
+        self.by_teacher.clear()
+        for _, teacher, _, hours in self.disciplines:
+            self.by_teacher[teacher] = self.by_teacher.get(teacher, 0) + hours
+        return self.by_teacher
+
+    def segment_by_load_type(self):
+        """Сегментация по видам учебной нагрузки"""
+        self.by_load_type.clear()
+        for _, _, load_type, hours in self.disciplines:
+            self.by_load_type[load_type] = self.by_load_type.get(load_type, 0) + hours
+        return self.by_load_type
+
+    def draw_pie_chart(self, canvas: tk.Canvas, data: dict, title: str):
+        """Отрисовка круговой диаграммы на холсте"""
+        canvas.delete("all")
+        if not data:
+            canvas.create_text(150, 100, text="Нет данных", font=("Arial", 12), fill="gray")
+            return
+
+        values = list(data.values())
+        total = sum(values)
+        if total == 0:
+            canvas.create_text(150, 100, text="Сумма часов = 0", font=("Arial", 12), fill="gray")
+            return
+
+        colors = ["#FF6347", "#4682B4", "#32CD32", "#FFD700", "#9370DB", "#FF69B4", "#20B2AA", "#D2691E"]
+        start_angle = 0
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        radius = min(canvas_width, canvas_height) * 0.4
+        center_x = canvas_width // 2
+        center_y = canvas_height // 2
+
+        canvas.create_text(center_x, 20, text=title, font=("Arial", 16, "bold"))
+
+        for i, (label, value) in enumerate(data.items()):
+            angle = (value / total) * 360
+            color = colors[i % len(colors)]
+
+            # Рисуем сектор
+            canvas.create_arc(
+                center_x - radius, center_y - radius,
+                center_x + radius, center_y + radius,
+                start=start_angle, extent=angle,
+                fill=color, outline="white", width=2
+            )
+
+            # Расчёт позиции для метки
+            mid_angle = math.radians(start_angle + angle / 2)
+            text_x = center_x + int(0.7 * radius * math.cos(mid_angle))
+            text_y = center_y - int(0.7 * radius * math.sin(mid_angle))
+            canvas.create_text(text_x, text_y, text=label, fill="white",
+                               font=("Arial", 9, "bold"), anchor="center")
+
+            start_angle += angle
+
+        # Легенда справа
+        x_legend = center_x + radius + 10
+        y_legend = center_y - len(data) * 15 // 2
+        for i, (label, value) in enumerate(data.items()):
+            color = colors[i % len(colors)]
+            canvas.create_rectangle(x_legend, y_legend + i*15, x_legend + 12, y_legend + i*15 + 12,
+                                    fill=color, outline="black")
+            canvas.create_text(x_legend + 18, y_legend + i*15 + 6, text=f"{label}: {value} ч",
+                               anchor="w", font=("Arial", 9))
+
+
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Расчасовка дисциплин — Вариант 14. Тры С.А.")
+        self.root.geometry("900x600")
+
+        self.scheduler = DisciplineScheduler()
+
+        # Элементы интерфейса
+        self.frame_controls = tk.Frame(root)
+        self.frame_controls.pack(pady=10)
+
+        self.btn_load = tk.Button(self.frame_controls, text="Загрузить данные", command=self.load_data)
+        self.btn_load.pack(side="left", padx=5)
+
+        self.btn_segment_teacher = tk.Button(self.frame_controls, text="Сегментация по преподавателям",
+                                             command=self.show_teacher_pie, state="disabled")
+        self.btn_segment_teacher.pack(side="left", padx=5)
+
+        self.btn_segment_load = tk.Button(self.frame_controls, text="Сегментация по видам нагрузки",
+                                          command=self.show_load_pie, state="disabled")
+        self.btn_segment_load.pack(side="left", padx=5)
+
+        # Две диаграммы рядом
+        self.frame_charts = tk.Frame(root)
+        self.frame_charts.pack(fill="both", expand=True, padx=20, pady=10)
+
+        self.canvas_teacher = tk.Canvas(self.frame_charts, bg="#f8f8f8", relief="sunken", bd=1)
+        self.canvas_teacher.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.label_teacher = tk.Label(self.frame_charts, text="По преподавателям", font=("Arial", 10))
+        self.label_teacher.grid(row=1, column=0)
+
+        self.canvas_load = tk.Canvas(self.frame_charts, bg="#f8f8f8", relief="sunken", bd=1)
+        self.canvas_load.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.label_load = tk.Label(self.frame_charts, text="По видам нагрузки", font=("Arial", 10))
+        self.label_load.grid(row=1, column=1)
+
+        self.frame_charts.grid_columnconfigure(0, weight=1)
+        self.frame_charts.grid_columnconfigure(1, weight=1)
+        self.frame_charts.grid_rowconfigure(0, weight=1)
+
+    def load_data(self):
+        filename = filedialog.askopenfilename(
+            title="Выберите файл с данными для 8 ЛАБЫ",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        )
+        if not filename:
+            return
+
+        success, msg = self.scheduler.load_data(filename)
+        if success:
+            messagebox.showinfo("Успех", msg)
+            self.btn_segment_teacher.config(state="normal")
+            self.btn_segment_load.config(state="normal")
+        else:
+            messagebox.showerror("Ошибка", f"Ошибка загрузки данных:\n{msg}")
+
+    def show_teacher_pie(self):
+        data = self.scheduler.segment_by_teacher()
+        self.scheduler.draw_pie_chart(self.canvas_teacher, data, "По преподавателям")
+
+    def show_load_pie(self):
+        data = self.scheduler.segment_by_load_type()
+        self.scheduler.draw_pie_chart(self.canvas_load, data, "По видам нагрузки")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()
