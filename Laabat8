@@ -21,17 +21,17 @@ class DisciplineScheduler:
         self.by_load_type = {} # Словарь: тип нагрузки -> сумма часов
 
     def load_data(self, Work):
-        try:
-            with open(Work, 'r', encoding='utf-8') as f:
+        try: #че такое try - начинаем блок, где может быть ошибка (например, файл не найден). 1)
+            with open(Work, 'r', encoding='utf-8') as f: #utf-8 кодировка файла 2)
                 lines = f.readlines()
             self.disciplines.clear()
-            for i, line in enumerate(lines):
-                line = line.strip()
+            for i, line in enumerate(lines): #enumerate 3) 
+                line = line.strip() #strip - у каждого элемента убирает лишний пробел 4)
                 if not line:
                     continue
-                parts = [p.strip() for p in (line.split(',') if ',' in line else line.split())]
-                if len(parts) != 4:
-                    raise ValueError(f"Неверное количество полей (строка {i+1})")
+                parts = [p.strip() for p in (line.split(',') if ',' in line else line.split())] #убирает запятые и точки, а как? 5)
+                if len(parts) != 4: 
+                    raise ValueError(f"Неверное количество полей (строка {i+1})") #в питоне нумирация с 0, 1, 2, 3, поэтому +1
 
                 subject, teacher, load_type, hours_str = parts
                 try:
@@ -47,22 +47,31 @@ class DisciplineScheduler:
             return False, str(e)
 
     def segment_by_teacher(self):
-        """Сегментация по преподавателям"""
+        """Сегментация по преподавателям""" #Сегментация - выборка
         self.by_teacher.clear()
-        for _, teacher, _, hours in self.disciplines:
-            self.by_teacher[teacher] = self.by_teacher.get(teacher, 0) + hours
+        for item in self.disciplines:
+            teacher = item[1]   # второй элемент — преподаватель
+            hours = item[3]     # четвёртый элемент — часы
+            #Если преподавателя ещё нет в словаре — считаем, что 0
+            if teacher not in self.by_teacher:
+                self.by_teacher[teacher] = 0
+            self.by_teacher[teacher] += hours
         return self.by_teacher
 
     def segment_by_load_type(self):
         """Сегментация по видам учебной нагрузки"""
         self.by_load_type.clear()
-        for _, _, load_type, hours in self.disciplines:
-            self.by_load_type[load_type] = self.by_load_type.get(load_type, 0) + hours
+        for item in self.disciplines:
+            load_type = item[2]   # третий элемент — тип занятия
+            hours = item[3]       # четвёртый элемент — часы
+            if load_type not in self.by_load_type:
+                self.by_load_type[load_type] = 0
+            self.by_load_type[load_type] += hours
         return self.by_load_type
 
     def draw_pie_chart(self, canvas: tk.Canvas, data: dict, title: str):
         """Отрисовка круговой диаграммы на холсте"""
-        canvas.delete("all")
+        canvas.delete("all") #canvas метод в tkin
         if not data:
             canvas.create_text(150, 100, text="Нет данных", font=("Arial", 12), fill="gray")
             return
